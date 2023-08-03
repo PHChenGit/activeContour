@@ -9,9 +9,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-add_executable(RvlCourse_hello rvl_hello.cpp)
-target_link_libraries(RvlCourse_hello PUBLIC "/usr/local/lib")
-
 add_executable(RvlCourse_cv show_cv.cpp)
-target_link_libraries(RvlCourse_cv PUBLIC ${OpenCV_LIBS})
+target_link_libraries(RvlCourse_cv PUBLIC ${OpenCV_LIBS} PUBLIC "/usr/local/lib")
 # target_link_libraries(RvlCourse ${OpenCV_LIBS})
