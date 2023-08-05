@@ -5,24 +5,34 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-#define FILLED -1
+#define MAX_POINTS 12
 
 std::vector<cv::Point> points;
 cv::Mat srcImg;
 const cv::Scalar colorGreen(0, 255, 0);
-const std::string originalWindowName  = "original";
+const std::string originalWindowName = "original";
 
 void setInitPoints(int event, int x, int y, int flags, void* userdata)
 {
-    if (event != cv::EVENT_LBUTTONDOWN || points.size() > 12) {
+    if (event != cv::EVENT_LBUTTONDOWN || points.size() > MAX_POINTS) {
         return;
     }
 
     printf("[%d, %d]\n", x, y);
     cv::Point p = cv::Point(x, y);
     points.push_back(p);
-    cv::circle(srcImg, p, 10, colorGreen, FILLED);
+    cv::circle(srcImg, p, 10, colorGreen, cv::LineTypes::FILLED);
     cv::imshow(originalWindowName, srcImg);
+
+    if (points.size() == MAX_POINTS) {
+        const int lineThickness = 5;
+        for (int pointIdx = 1; pointIdx < MAX_POINTS; pointIdx++) {
+            cv::line(srcImg, points[pointIdx-1], points[pointIdx], colorGreen, lineThickness);
+            cv::imshow(originalWindowName, srcImg);
+        }
+        cv::line(srcImg, points[11], points[0], colorGreen, lineThickness);
+        cv::imshow(originalWindowName, srcImg);
+    }
 }
 
 int main(int argc, char** argv )
