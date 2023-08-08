@@ -1,43 +1,35 @@
 #include <stdio.h>
 #include <vector>
-#include <tuple>
+#include <limits> 
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-#define MAX_POINTS 12
+#define MAX_POINTS 8
+#define MAX_INTERATIONS 1000
+#define ONE_MICROSECOND 1000
+#define TWO_MICROSECOND 2000
+#define CONTOURS_THICKNESS 3
+#define WINDOW_NAME_ORIGINAL "original"
+#define CIRCLE_SIZE 5
 
 std::vector<cv::Point> points;
 cv::Mat srcImg;
 const cv::Scalar colorGreen(0, 255, 0);
-const std::string originalWindowName = "original";
 
 void setInitPoints(int event, int x, int y, int flags, void* userdata)
 {
-    if (event != cv::EVENT_LBUTTONDOWN || points.size() > MAX_POINTS) {
-        return;
-    }
-
-    printf("[%d, %d]\n", x, y);
-    cv::Point p = cv::Point(x, y);
-    points.push_back(p);
-    cv::circle(srcImg, p, 10, colorGreen, cv::LineTypes::FILLED);
-    cv::imshow(originalWindowName, srcImg);
-
-    if (points.size() == MAX_POINTS) {
-        const int lineThickness = 5;
-        for (int pointIdx = 1; pointIdx < MAX_POINTS; pointIdx++) {
-            cv::line(srcImg, points[pointIdx-1], points[pointIdx], colorGreen, lineThickness);
-            cv::imshow(originalWindowName, srcImg);
-        }
-        cv::line(srcImg, points[11], points[0], colorGreen, lineThickness);
-        cv::imshow(originalWindowName, srcImg);
+    if (event == cv::EVENT_LBUTTONDOWN && points.size() < MAX_POINTS) {
+        printf("[%d, %d]\n", x, y);
+        cv::Point p = cv::Point(x, y);
+        cv::circle(srcImg, p, CIRCLE_SIZE, colorGreen, cv::LineTypes::FILLED);
+        points.push_back(p);
+        cv::imshow(WINDOW_NAME_ORIGINAL, srcImg);
     }
 }
 
 int main(int argc, char** argv )
 {
-    cv::Mat cpImg, bluredImg, grayImg, sobelX, sobelY;
     srcImg = cv::imread("../test.jpg", cv::IMREAD_COLOR);
 
     if ( !srcImg.data )
@@ -46,22 +38,28 @@ int main(int argc, char** argv )
         return -1;
     }
 
-    srcImg.copyTo(cpImg);
-    int ksize = 7;
-    cv::GaussianBlur(cpImg, bluredImg, cv::Size(ksize, ksize), 10);
-    cv::cvtColor(bluredImg, grayImg, cv::COLOR_BGR2GRAY);
-    cv::Sobel(grayImg, sobelX, CV_16S, 1, 0);
-    cv::Sobel(grayImg, sobelY, CV_16S, 1, 0);
+    cv::Mat grayScale;
+    srcImg.copyTo(grayScale);
+    cv::cvtColor(grayScale, grayScale, cv::COLOR_BGR2GRAY);
+    cv::GaussianBlur(grayScale, grayScale, cv::Size(3,3), 10);
 
-    cv::Mat absGradX, absGradY, mixGrad;
-    cv::convertScaleAbs(sobelX, absGradX);
-    cv::convertScaleAbs(sobelY, absGradY);
+    cv::Mat gradX, gradY, gradient;
+    cv::Sobel(grayScale, gradX, CV_32F, 1, 0);
+    cv::Sobel(grayScale, gradY, CV_32F, 0, 1);
+    cv::addWeighted(gradX, 1.0, gradY, 1.0, 0.0, gradient);
 
-    cv::addWeighted(absGradX, 1.0, absGradY, 1.0, 0, mixGrad);
+    cv::namedWindow(WINDOW_NAME_ORIGINAL, cv::WINDOW_AUTOSIZE );
+    cv::setMouseCallback(WINDOW_NAME_ORIGINAL, setInitPoints);
 
-    cv::namedWindow(originalWindowName, cv::WINDOW_AUTOSIZE );
-    cv::imshow(originalWindowName, srcImg);
-    cv::setMouseCallback(originalWindowName, setInitPoints);
+    while (points.size() < MAX_POINTS) {
+        cv::imshow(WINDOW_NAME_ORIGINAL, srcImg);
+        cv::waitKey(10);
+    }
+    std::vector<std::vector<cv::Point>> contours;
+    contours.push_back(points);
+    printf("drawing contours\n");
+    cv::drawContours(srcImg, contours, 0, colorGreen, CONTOURS_THICKNESS);
+    cv::imshow(WINDOW_NAME_ORIGINAL, srcImg);
 
     cv::waitKey(0);
     cv::destroyAllWindows();
