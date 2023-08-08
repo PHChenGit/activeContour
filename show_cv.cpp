@@ -33,8 +33,12 @@ void setInitPoints(int event, int x, int y, int flags, void* userdata)
  * energy image = gamma * del I square
  * energy contour = alpha * energy elastic + beta * energy smooth
  */
-std::vector<cv::Point> activeContour(cv::Mat gradient, const double& alpha, const double& beta, const double& rvl_gamma)
+void activeContour(cv::Mat gradient)
 {
+    const double alpha = 0.1;
+    const double beta = 0.3;
+    const double rvl_gamma = 0.1;
+
     double minEnergy = std::numeric_limits<double>::max();
     cv::Point currPoint;
     std::vector<cv::Point> newPoints;
@@ -43,9 +47,8 @@ std::vector<cv::Point> activeContour(cv::Mat gradient, const double& alpha, cons
     int centerY = srcImg.cols / 2;
     for (int idx = 0; idx < MAX_POINTS; idx++) {
         cv::Point point = points[idx];
-        cv::Point prevPoint = points[(idx + points.size()-1) % points.size()];
+        cv::Point prevPoint = points[(idx + points.size() - 1) % points.size()];
         cv::Point nexPoint = points[(idx + 1) % points.size()];
-        cv::Point newPoint;
 
         // set searching area
         int xDirection = point.x < centerX ? -1 : 1;
@@ -55,8 +58,8 @@ std::vector<cv::Point> activeContour(cv::Mat gradient, const double& alpha, cons
         int yStart = point.y < centerY ? searchingRadius : -searchingRadius;
         int yEnd = point.y < centerY ? -searchingRadius : searchingRadius;
 
-        for (int curX = xStart; curX < centerX ? curX >= xEnd : curX <= xEnd ; curX += xDirection) {
-            for (int curY = yStart; curY < centerY ? curY >= yEnd : curY <= yEnd; curY += yDirection) {
+        for (int curX = xStart; point.x < centerX ? curX >= xEnd : curX <= xEnd ; curX += xDirection) {
+            for (int curY = yStart; point.y < centerY ? curY >= yEnd : curY <= yEnd; curY += yDirection) {
                 currPoint = cv::Point(point.x + curX, point.y + curY);
                 double energyCont = cv::norm(currPoint - prevPoint);
                 double energyCurv = cv::norm(prevPoint - (2 * currPoint) + nexPoint);
@@ -65,16 +68,14 @@ std::vector<cv::Point> activeContour(cv::Mat gradient, const double& alpha, cons
 
                 if (energyTotal < minEnergy) {
                     minEnergy = energyTotal;
-                    newPoint = currPoint;
+                    point = currPoint;
                 }
             }
         }
 
-        newPoints.push_back(newPoint);
-        cv::circle(srcImg, point, CIRCLE_SIZE, colorGreen, cv::LineTypes::FILLED);
+        newPoints.push_back(point);
     }
-
-    return newPoints;
+    points = newPoints;
 }
 
 void set_debug_points(cv::Point point)
@@ -99,11 +100,14 @@ int main(int argc, char** argv )
     cv::cvtColor(grayScale, grayScale, cv::COLOR_BGR2GRAY);
     cv::GaussianBlur(grayScale, blur, cv::Size(3,3), 0);
 
-    cv::Mat gradX, gradY, gradient;
+    cv::Mat gradX, gradY, absGradX, absGradY, gradient;
     cv::Sobel(blur, gradX, CV_64F, 1, 0);
     cv::Sobel(blur, gradY, CV_64F, 0, 1);
-    cv::add(gradX, gradY, gradient);
+    convertScaleAbs(gradX, absGradX);
+    convertScaleAbs(gradY, absGradY);
+    // cv::add(gradX, gradY, gradient);
     // cv::magnitude(gradX, gradY, gradient);
+    addWeighted(absGradX, 1.0, absGradY, 1.0, 0, gradient);
 
     cv::namedWindow(WINDOW_NAME_ORIGINAL, cv::WINDOW_AUTOSIZE );
     // cv::setMouseCallback(WINDOW_NAME_ORIGINAL, setInitPoints);
@@ -124,18 +128,18 @@ int main(int argc, char** argv )
     set_debug_points(cv::Point(767, 76));
 
     std::vector<std::vector<cv::Point>> contours;
-    const double alpha = 0.1;
-    const double beta = 1.00;
-    const double rvl_gamma = 50;
+    cv::Mat paintImg;
 
     for (int step = 0; step < MAX_INTERATIONS; step++) {
+        printf("step: %d\n", step);
         contours.clear();
         contours.push_back(points);
-        cv::drawContours(srcImg, contours, 0, colorGreen, CONTOURS_THICKNESS);
-        cv::imshow(WINDOW_NAME_ORIGINAL, srcImg);
-        cv::waitKey(1000);
+        srcImg.copyTo(paintImg);
+        cv::drawContours(paintImg, contours, 0, colorGreen, CONTOURS_THICKNESS);
+        cv::imshow(WINDOW_NAME_ORIGINAL, paintImg);
+        cv::waitKey(400);
 
-        points = activeContour(gradient, alpha, beta, rvl_gamma);
+        activeContour(gradient);
     }
 
     cv::waitKey(0);
