@@ -9,9 +9,5 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-add_executable(active_contour show_cv.cpp)
+add_executable(active_contour active_contour.cpp)
 target_link_libraries(active_contour PUBLIC ${OpenCV_LIBS} PUBLIC "/usr/local/lib")
-
-
-add_executable(test_contours test_contours.cpp)
-target_link_libraries(test_contours PUBLIC ${OpenCV_LIBS} PUBLIC "/usr/local/lib")

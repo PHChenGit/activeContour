@@ -5,7 +5,7 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-#define MAX_POINTS 32
+#define MAX_POINTS 24
 #define MAX_INTERATIONS 1000
 #define ONE_MICROSECOND 1000
 #define TWO_MICROSECOND 2000
@@ -36,8 +36,8 @@ void setInitPoints(int event, int x, int y, int flags, void* userdata)
  */
 void activeContour(cv::Mat gradient)
 {
-    const double alpha = 0.1;
-    const double beta = 0.2;
+    const double alpha = 0.4;
+    const double beta = 0.5;
     const double rvl_gamma = 0.3;
 
     cv::Point currPoint;
