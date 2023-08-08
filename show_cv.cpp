@@ -5,7 +5,7 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-#define MAX_POINTS 8
+#define MAX_POINTS 32
 #define MAX_INTERATIONS 1000
 #define ONE_MICROSECOND 1000
 #define TWO_MICROSECOND 2000
@@ -14,6 +14,7 @@
 #define CIRCLE_SIZE 5
 
 std::vector<cv::Point> points;
+std::vector<double> minEnergy;
 cv::Mat srcImg;
 const cv::Scalar colorGreen(0, 255, 0);
 
@@ -36,16 +37,15 @@ void setInitPoints(int event, int x, int y, int flags, void* userdata)
 void activeContour(cv::Mat gradient)
 {
     const double alpha = 0.1;
-    const double beta = 0.3;
-    const double rvl_gamma = 0.1;
+    const double beta = 0.2;
+    const double rvl_gamma = 0.3;
 
-    double minEnergy = std::numeric_limits<double>::max();
     cv::Point currPoint;
     std::vector<cv::Point> newPoints;
     const int searchingRadius = 1;
     int centerX = srcImg.rows / 2;
     int centerY = srcImg.cols / 2;
-    for (int idx = 0; idx < MAX_POINTS; idx++) {
+    for (int idx = 0; idx < points.size(); idx++) {
         cv::Point point = points[idx];
         cv::Point prevPoint = points[(idx + points.size() - 1) % points.size()];
         cv::Point nexPoint = points[(idx + 1) % points.size()];
@@ -66,8 +66,8 @@ void activeContour(cv::Mat gradient)
                 double energyImg = cv::norm(gradient.at<double>(currPoint));
                 double energyTotal = alpha * energyCont + beta * energyCurv + rvl_gamma * energyImg;
 
-                if (energyTotal < minEnergy) {
-                    minEnergy = energyTotal;
+                if (energyTotal < minEnergy[idx]) {
+                    minEnergy[idx] = energyTotal;
                     point = currPoint;
                 }
             }
@@ -105,39 +105,37 @@ int main(int argc, char** argv )
     cv::Sobel(blur, gradY, CV_64F, 0, 1);
     convertScaleAbs(gradX, absGradX);
     convertScaleAbs(gradY, absGradY);
-    // cv::add(gradX, gradY, gradient);
-    // cv::magnitude(gradX, gradY, gradient);
     addWeighted(absGradX, 1.0, absGradY, 1.0, 0, gradient);
 
     cv::namedWindow(WINDOW_NAME_ORIGINAL, cv::WINDOW_AUTOSIZE );
-    // cv::setMouseCallback(WINDOW_NAME_ORIGINAL, setInitPoints);
+    cv::setMouseCallback(WINDOW_NAME_ORIGINAL, setInitPoints);
+    int key;
 
-    // while (points.size() < MAX_POINTS) {
-    //     cv::imshow(WINDOW_NAME_ORIGINAL, srcImg);
-    //     cv::waitKey(10);
-    // }
-
-    // for debuging
-    set_debug_points(cv::Point(135, 200));
-    set_debug_points(cv::Point(173, 341));
-    set_debug_points(cv::Point(234, 659));
-    set_debug_points(cv::Point(410, 909));
-    set_debug_points(cv::Point(693, 918));
-    set_debug_points(cv::Point(858, 569));
-    set_debug_points(cv::Point(789, 307));
-    set_debug_points(cv::Point(767, 76));
+    while (true) {
+        cv::imshow(WINDOW_NAME_ORIGINAL, srcImg);
+        key = cv::waitKey(30);
+        if (key == 27 || points.size() >= MAX_POINTS) {
+            break;
+        }
+    }
 
     std::vector<std::vector<cv::Point>> contours;
     cv::Mat paintImg;
 
+    for (int i = 0; i < points.size(); i++) {
+        minEnergy.push_back(std::numeric_limits<double>::max());
+    }
+
     for (int step = 0; step < MAX_INTERATIONS; step++) {
-        printf("step: %d\n", step);
         contours.clear();
         contours.push_back(points);
         srcImg.copyTo(paintImg);
+        for (cv::Point p : points) {
+            cv::circle(paintImg, p, 5, cv::Scalar(0,0,255), cv::LineTypes::FILLED);
+        }
         cv::drawContours(paintImg, contours, 0, colorGreen, CONTOURS_THICKNESS);
         cv::imshow(WINDOW_NAME_ORIGINAL, paintImg);
-        cv::waitKey(400);
+        cv::waitKey(50);
 
         activeContour(gradient);
     }
